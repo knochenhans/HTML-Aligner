@@ -3,19 +3,8 @@
 #include <QApplication>
 #include <QMessageBox>
 
-struct File {
-  QTextStream inStream;
-  QString fileContents;
-  QFile inFile;
-  QRegularExpression re;
-  QRegularExpression reWhitespace;
-};
-
 Widget::Widget(QWidget *parent) : QWidget(parent) {
   bool running = true;
-
-  File source;
-  File target;
 
   do {
     QFile inFileSource(QFileDialog::getOpenFileName(
