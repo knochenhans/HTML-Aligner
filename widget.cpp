@@ -63,8 +63,9 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
 
           // Find in target
 
-          if (matchSource.captured(0).contains("alt=")) {
-            qDebug() << "Alt found, ignoring";
+          if (matchSource.captured(0).contains("alt=") ||
+              matchSource.captured(0).contains("class=")) {
+            qDebug() << "alt/class found, ignoring";
             continue;
           } else {
             startPosTarget = fileContentsTarget.indexOf(match, startPosTarget);
