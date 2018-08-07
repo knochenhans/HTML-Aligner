@@ -3,11 +3,6 @@
 #include <QApplication>
 #include <QMessageBox>
 
-// struct Change {
-//  int tagID;
-//  int
-//};
-
 Widget::Widget(QWidget *parent) : QWidget(parent) {
 
   QStringList sourceFiles = QFileDialog::getOpenFileNames(
