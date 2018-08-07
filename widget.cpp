@@ -3,6 +3,11 @@
 #include <QApplication>
 #include <QMessageBox>
 
+// struct Change {
+//  int tagID;
+//  int
+//};
+
 Widget::Widget(QWidget *parent) : QWidget(parent) {
 
   QStringList sourceFiles = QFileDialog::getOpenFileNames(
@@ -45,185 +50,116 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
         QTextStream inStreamTarget(&inFileTarget);
         QString fileContentsTarget = inStreamTarget.readAll();
 
-        QRegularExpression reSource("<.*?>");
-        QRegularExpression reWhitespaceSource(
-            "\\s", QRegularExpression::MultilineOption);
-        QRegularExpression reWhitespaceTarget(
-            "\\s", QRegularExpression::MultilineOption);
+        QRegularExpression reTags("<.*?>");
+        QRegularExpression reWhitespace("\\s",
+                                        QRegularExpression::MultilineOption);
         QRegularExpressionMatchIterator i =
-            reSource.globalMatch(fileContentsSource);
+            reTags.globalMatch(fileContentsSource);
 
-        int startPosTarget = 0;
+        QRegularExpressionMatchIterator j =
+            reTags.globalMatch(fileContentsTarget);
 
-        while (i.hasNext()) {
-          QRegularExpressionMatch matchSource = i.next();
-          QString match = matchSource.captured(0);
-          // c qDebug() << "Source: " << matchSource.capturedStart() << " - " <<
-          // match;
+        int tagsSource = 0;
+        int tagsTarget = 0;
 
-          // Find in target
+        tagsSource = countTags(i);
+        tagsTarget = countTags(j);
 
-          if (matchSource.captured(0).contains("alt=")) {
-            qDebug() << "Alt found, ignoring";
-            continue;
-          } else {
-            startPosTarget = fileContentsTarget.indexOf(match, startPosTarget);
-          }
-
-          if (startPosTarget != -1) {
-            // We found the same tag
-
-            // Check for whitespace before
-
-            // Collect as many whitespaces as possible before
-
-            QString beforeSourceCollected;
-            int j = 1;
-            bool running = true;
-
-            do {
-              QString beforeSource =
-                  fileContentsSource.mid(matchSource.capturedStart() - j, 1);
-
-              QRegularExpressionMatch whitespaceMatchSource =
-                  reWhitespaceSource.match(beforeSource);
-
-              if (whitespaceMatchSource.hasMatch()) {
-                j++;
-                beforeSourceCollected =
-                    whitespaceMatchSource.captured(0) + beforeSourceCollected;
-              } else {
-                running = false;
-              }
-            } while (running && startPosTarget - j > 0);
-
-            // qDebug() << beforeSourceCollected;
-
-            // Collect whitespace before target tag
-
-            QString beforeTargetCollected;
-            j = 1;
-            running = true;
-
-            do {
-              QString beforeTarget =
-                  fileContentsTarget.mid(startPosTarget - j, 1);
-
-              QRegularExpressionMatch whitespaceMatchTarget =
-                  reWhitespaceTarget.match(beforeTarget);
-
-              if (whitespaceMatchTarget.hasMatch()) {
-                j++;
-                beforeTargetCollected =
-                    whitespaceMatchTarget.captured(0) + beforeTargetCollected;
-              } else {
-                running = false;
-              }
-            } while (running && startPosTarget - j > 0);
-
-            // Check if target matches source
-            if (beforeSourceCollected.compare(beforeTargetCollected) == 0) {
-              // Whitespaces match, nothing to do
-            } else {
-              // qDebug() << "Replace in Target: " << startPosTarget;
-
-              // Copy whitespace from source to target
-              if (beforeSourceCollected.length() == 0) {
-                fileContentsTarget.remove(startPosTarget -
-                                              beforeTargetCollected.length(),
-                                          beforeTargetCollected.length());
-              } else {
-                fileContentsTarget.replace(
-                    startPosTarget - beforeTargetCollected.length(),
-                    beforeTargetCollected.length(), beforeSourceCollected);
-              }
-            }
-          } else {
-            qDebug() << "Tag not found in Target!";
-          }
+        if (tagsSource != tagsTarget) {
+          qDebug() << "Tag numbers do not match!";
+          break;
         }
 
-        startPosTarget = 0;
+        // Todo: Find way to reset iterators
 
-        i = reSource.globalMatch(fileContentsSource);
+        i = reTags.globalMatch(fileContentsSource);
+
+        int tagSourceID = 0;
+
+        // Go through tags
+
         while (i.hasNext()) {
           QRegularExpressionMatch matchSource = i.next();
-          QString match = matchSource.captured(0);
-          // qDebug() << match;
+          QString matchSourceText = matchSource.captured();
 
-          // Find in target
-          startPosTarget = fileContentsTarget.indexOf(match, startPosTarget);
+          // Get whitespace before and after source tag
 
-          if (startPosTarget != -1) {
-            // --- After
+          QString beforeSourceCollected = whitespacesBefore(
+              fileContentsSource.left(matchSource.capturedStart()));
 
-            // Check for whitespace after
+          QString afterSourceCollected = whitespacesAfter(
+              fileContentsSource.mid(matchSource.capturedEnd()));
 
-            // Collect as many whitespaces as possible after
+          // Find same tag ID in target
 
-            QString afterSourceCollected;
-            int j = 0;
-            bool running = true;
+          j = reTags.globalMatch(fileContentsTarget);
 
-            do {
-              QString afterSource =
-                  fileContentsSource.mid(matchSource.capturedEnd() + j, 1);
+          // skip to same target tag one we want
 
-              QRegularExpressionMatch whitespaceMatchSource =
-                  reWhitespaceSource.match(afterSource);
+          QRegularExpressionMatch matchTarget = j.next();
 
-              if (whitespaceMatchSource.hasMatch()) {
-                j++;
-                afterSourceCollected += whitespaceMatchSource.captured(0);
-              } else {
-                running = false;
-              }
-            } while (running &&
-                     startPosTarget + j < fileContentsSource.length());
+          for (int x = 0; x < tagSourceID; x++) {
+            matchTarget = j.next();
+          }
 
-            qDebug() << afterSourceCollected;
+          QString matchTargetText = matchTarget.captured();
 
-            // Collect whitespace after target tag
+          QString beforeTargetCollected = whitespacesBefore(
+              fileContentsTarget.left(matchTarget.capturedStart()));
 
-            QString afterTargetCollected;
-            j = 0;
-            running = true;
-            int endPosTarget = startPosTarget + match.length();
+          if (beforeSourceCollected.compare(beforeTargetCollected) != 0) {
 
-            do {
-              QString afterTarget = fileContentsTarget.mid(endPosTarget + j, 1);
+            // Copy whitespace from source to target
 
-              QRegularExpressionMatch whitespaceMatchTarget =
-                  reWhitespaceTarget.match(afterTarget);
-
-              if (whitespaceMatchTarget.hasMatch()) {
-                j++;
-                afterTargetCollected += whitespaceMatchTarget.captured(0);
-              } else {
-                running = false;
-              }
-            } while (running &&
-                     startPosTarget + j < fileContentsTarget.length());
-
-            // Check if target matches source
-            if (afterSourceCollected.compare(afterTargetCollected) == 0) {
-              // Whitespaces match, nothing to do
+            if (beforeSourceCollected.length() == 0) {
+              // There’s no whitespace in the source file, so delete everything
+              // in the target file
+              fileContentsTarget.remove(matchTarget.capturedStart() -
+                                            beforeTargetCollected.length(),
+                                        beforeTargetCollected.length());
             } else {
-              // Copy whitespace from source to target
-              if (afterSourceCollected.length() == 0) {
-                fileContentsTarget.remove(endPosTarget,
-                                          afterTargetCollected.length());
-              } else {
-                if (afterTargetCollected.length() == 0) {
-                  fileContentsTarget.insert(endPosTarget, afterSourceCollected);
-                } else {
-                  fileContentsTarget.replace(endPosTarget,
-                                             afterTargetCollected.length(),
-                                             afterSourceCollected);
-                }
-              }
+              // ...otherwise copy over the whitespace
+              fileContentsTarget.replace(
+                  matchTarget.capturedStart() - beforeTargetCollected.length(),
+                  beforeTargetCollected.length(), beforeSourceCollected);
             }
           }
+
+          // TODO: Match again necessary for whitespace after tag, need a way to
+          // do this more elegantly
+
+          j = reTags.globalMatch(fileContentsTarget);
+
+          // skip to same target tag one we want
+
+          matchTarget = j.next();
+
+          for (int x = 0; x < tagSourceID; x++) {
+            matchTarget = j.next();
+          }
+
+          QString afterTargetCollected = whitespacesAfter(
+              fileContentsTarget.mid(matchTarget.capturedEnd()));
+
+          if (afterSourceCollected.compare(afterTargetCollected) != 0) {
+            // Copy whitespace from source to target
+
+            if (afterSourceCollected.length() == 0) {
+              // There’s no whitespace in the source file, so
+              // delete everything in the target file
+
+              fileContentsTarget.remove(matchTarget.capturedEnd(),
+                                        afterTargetCollected.length());
+            } else {
+              // ...otherwise copy over the whitespace
+
+              fileContentsTarget.replace(matchTarget.capturedEnd(),
+                                         afterTargetCollected.length(),
+                                         afterSourceCollected);
+            }
+          }
+
+          tagSourceID++;
         }
 
         inFileSource.close();
@@ -249,4 +185,41 @@ Widget::Widget(QWidget *parent) : QWidget(parent) {
 
 Widget::~Widget() {}
 
-void Widget::checkBefore() {}
+QString Widget::whitespacesBefore(QString string) {
+  // Get string up to position of current tag and find all whitespaces
+  // before it
+
+  QString whitespaces;
+
+  QRegularExpression reWhitespaces("\\s+$");
+  QRegularExpressionMatch reWhitespacesMatch = reWhitespaces.match(string);
+
+  if (reWhitespacesMatch.hasMatch()) {
+    whitespaces = reWhitespacesMatch.captured(0);
+  }
+  return whitespaces;
+}
+
+QString Widget::whitespacesAfter(QString string) {
+  // Get from end of current tag and find all whitespaces
+  // after it
+
+  QString whitespaces;
+
+  QRegularExpression reWhitespaces("^\\s+");
+  QRegularExpressionMatch reWhitespacesMatch = reWhitespaces.match(string);
+
+  if (reWhitespacesMatch.hasMatch()) {
+    whitespaces = reWhitespacesMatch.captured(0);
+  }
+  return whitespaces;
+}
+
+int Widget::countTags(QRegularExpressionMatchIterator i) {
+  int number = 0;
+  while (i.hasNext()) {
+    QRegularExpressionMatch match = i.next();
+    number++;
+  }
+  return number;
+}

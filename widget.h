@@ -16,7 +16,9 @@ public:
   ~Widget();
 
 private:
-  void checkBefore();
+  QString whitespacesBefore(QString string);
+  QString whitespacesAfter(QString string);
+  int countTags(QRegularExpressionMatchIterator i);
 };
 
 #endif // WIDGET_H
